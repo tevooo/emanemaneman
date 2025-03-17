@@ -1,13 +1,14 @@
 import json
 import urllib.request
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
-from telegram.ext import CommandHandler, CallbackQueryHandler, Application, CallbackContext
+from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes
 import re
 from unidecode import unidecode
 import os
 import asyncio
 import datetime
 import logging
+import pytz
 
 # Logging configuration
 logging.basicConfig(
