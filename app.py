@@ -284,7 +284,7 @@ async def error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.callback_query.message.reply_text("Bir hata oluştu. Lütfen daha sonra tekrar deneyin.")
 
 def main():
-    application = Application.builder().token(TOKEN).job_queue_timezone(pytz.utc).build()
+    application = Application.builder().token(TOKEN).build()  # job_queue_timezone kaldırıldı
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("aciklama", aciklama))
     application.add_handler(CommandHandler("cevap", cevap))
