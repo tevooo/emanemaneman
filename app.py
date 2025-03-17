@@ -369,8 +369,7 @@ async def error_handler(update: Update, context: CallbackContext):
         await update.callback_query.message.reply_text("Bir hata oluştu. Lütfen daha sonra tekrar deneyin.")
 
 def main():
-    application = Application.builder().token(TOKEN).build()
-
+    application = Application.builder().token(TOKEN).job_queue_timezone(pytz.utc).build()
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("aciklama", aciklama))
     application.add_handler(CommandHandler("cevap", cevap))
@@ -378,23 +377,24 @@ def main():
     application.add_error_handler(error_handler)
 
     loop = asyncio.get_event_loop()
+    asyncio.run(setup_and_run(loop))
+
+async def setup_and_run(loop):
     global token, last_login_time
-    token = loop.run_until_complete(login())
+    token = await login()
     if token:
-        data = loop.run_until_complete(fetch_data())
+        data = await fetch_data()
         if data:
             global full_data
             full_data = data
-
             try:
                 with open('deneme_verisi.json', 'w', encoding='utf-8') as f:
                     json.dump(full_data, f, ensure_ascii=False, indent=4)
-                    print("Full data saved successfully to 'deneme_verisi.json'.")
+                print("Full data saved successfully to 'deneme_verisi.json'.")
             except Exception as e:
                 print(f"Error saving data to file: {e}")
-
-            loop.create_task(update_data())  # update_data fonksiyonunu başlat
-            application.run_polling()
+            loop.create_task(update_data())
+    await application.run_polling()
 
 if __name__ == "__main__":
     main()
