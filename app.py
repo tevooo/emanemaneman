@@ -8,7 +8,7 @@ import os
 import asyncio
 import datetime
 import logging
-from aiohttp import web  # Web sunucusu için
+from aiohttp import web
 
 # Logging configuration
 logging.basicConfig(
@@ -36,7 +36,6 @@ DAILY_LIMIT = 10
 last_login_time = None
 TOKEN_FILE = "token.txt"
 
-# Token dosyasını oku veya login yap
 def load_token():
     global token, last_login_time
     if os.path.exists(TOKEN_FILE):
@@ -152,36 +151,36 @@ async def fetch_data():
 
 async def update_data():
     global token, full_data, last_login_time
-    print("Checking data update...")
-    current_time = datetime.datetime.now()
-    time_diff = (current_time - last_login_time).total_seconds() if last_login_time else float('inf')
-    print(f"Time since last token refresh: {time_diff:.2f} seconds")
-    
-    if not last_login_time or time_diff >= 21600:  # 6 saat
-        print("6 hours passed, refreshing token...")
-        token = await login()
-        if not token:
-            print("Token refresh failed, retrying in 1 hour.")
+    while True:
+        print("Checking data update...")
+        current_time = datetime.datetime.now()
+        time_diff = (current_time - last_login_time).total_seconds() if last_login_time else float('inf')
+        print(f"Time since last token refresh: {time_diff:.2f} seconds")
+        
+        if not last_login_time or time_diff >= 21600:  # 6 saat
+            print("6 hours passed, refreshing token...")
+            token = await login()
+            if not token:
+                print("Token refresh failed, retrying in 1 hour.")
+                await asyncio.sleep(3600)
+                continue
+
+        data = await fetch_data()
+        if data:
+            full_data = data
+            try:
+                with open('deneme_verisi.json', 'w', encoding='utf-8') as f:
+                    json.dump(full_data, f, ensure_ascii=False, indent=4)
+                    print("Full data saved successfully to 'deneme_verisi.json'.")
+            except Exception as e:
+                print(f"Error saving data to file: {e}")
+        else:
+            print("Data fetch failed, retrying in 1 hour...")
             await asyncio.sleep(3600)
-            await update_data()
-            return
+            continue
 
-    data = await fetch_data()
-    if data:
-        full_data = data
-        try:
-            with open('deneme_verisi.json', 'w', encoding='utf-8') as f:
-                json.dump(full_data, f, ensure_ascii=False, indent=4)
-                print("Full data saved successfully to 'deneme_verisi.json'.")
-        except Exception as e:
-            print(f"Error saving data to file: {e}")
-    else:
-        print("Data fetch failed, retrying in 1 hour...")
+        print("Waiting 1 hour for next check...")
         await asyncio.sleep(3600)
-
-    print("Waiting 1 hour for next check...")
-    await asyncio.sleep(3600)
-    await update_data()
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.message.from_user
@@ -350,7 +349,6 @@ async def error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif update and update.callback_query:
         await update.callback_query.message.reply_text("Bir hata oluştu. Lütfen daha sonra tekrar deneyin.")
 
-# Health check için minimal HTTP sunucusu
 async def handle_health_check(request):
     return web.Response(text="OK")
 
@@ -362,6 +360,15 @@ async def start_web_server():
     site = web.TCPSite(runner, '0.0.0.0', 8000)
     await site.start()
     print("Health check server started on port 8000")
+
+async def run_bot(application):
+    await application.initialize()
+    await application.start()
+    await application.updater.start_polling()
+    print("Bot polling started")
+    # Botun çalışmasını sürdürmek için sonsuz döngü
+    while True:
+        await asyncio.sleep(3600)  # 1 saat bekle, botun kapanmasını önler
 
 async def main():
     # Telegram botunu başlat
@@ -389,11 +396,11 @@ async def main():
             except Exception as e:
                 print(f"Error saving data to file: {e}")
 
-    # Web sunucusu ve botu aynı anda çalıştır
+    # Tüm görevleri aynı anda çalıştır
     await asyncio.gather(
         start_web_server(),
         update_data(),
-        application.run_polling()
+        run_bot(application)
     )
 
 if __name__ == "__main__":
