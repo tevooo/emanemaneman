@@ -23,7 +23,7 @@ login_url = f"{BASE_URL}/api/TokenAuth/Authenticate"
 data_url = f"{BASE_URL}/api/services/app/Denemes/GetAll?Filter=&DenemeAdiFilter=&BKitapcihiVarmiFilter=-1&DenemeKesildimi=-1&DonemId=-1&SinavTuruId=-1&DenemeSetiId=-1&YayineviId=0&Hazirlayan=0&DenemeSetiDenemeSetiAdiFilter=&SinavTuruNameFilter=&DonemDonemAdiFilter=&md5Key=&md10Key=&Sorting=denemeSetiAdi&SkipCount=0&MaxResultCount=100000"
 download_url = f"{BASE_URL}/api/services/app/Denemes/GetDenemeCevapAnahtariPdf"
 
-TOKEN = '7924307739:AAEVw6Sg_M6bI_-uoKH9NQYxrcpjEU0HTeE'
+TOKEN = '7924307739:AAEV3N2R2tyPlLHavNViHGXtzDIZfMzk70Y'
 headers = {"Content-Type": "application/json"}
 
 # Global variables
@@ -33,30 +33,47 @@ filtered_data = []
 user_downloads = {}
 DAILY_LIMIT = 10
 last_login_time = None
+TOKEN_FILE = "token.txt"
+
+# Token dosyasını oku veya login yap
+def load_token():
+    global token, last_login_time
+    if os.path.exists(TOKEN_FILE):
+        with open(TOKEN_FILE, 'r') as f:
+            token = f.read().strip()
+            last_login_time = datetime.datetime.now()
+            print(f"Token loaded from file: {token[:10]}...")
+    else:
+        print("Token file not found, will acquire new token on first login.")
+
+def save_token(new_token):
+    with open(TOKEN_FILE, 'w') as f:
+        f.write(new_token)
+    print(f"New token saved to {TOKEN_FILE}: {new_token[:10]}...")
 
 def check_download_limit(user_id):
     today = datetime.datetime.now().date()
-
+    
     if user_id not in user_downloads or user_downloads[user_id]['date'] != today:
         user_downloads[user_id] = {
             'date': today,
             'count': 0
         }
-
+    
     if user_downloads[user_id]['count'] >= DAILY_LIMIT:
         return False
-
+    
     return True
 
 def increment_download_count(user_id):
     today = datetime.datetime.now().date()
-
+    
     if user_id not in user_downloads or user_downloads[user_id]['date'] != today:
         user_downloads[user_id] = {
             'date': today,
             'count': 0
         }
-
+    
     user_downloads[user_id]['count'] += 1
 
 def normalize_text(text):
@@ -116,7 +133,8 @@ async def login():
             if response.status == 200 and response_data.get("success"):
                 token = response_data["result"]["accessToken"]
                 last_login_time = datetime.datetime.now()
-                print(f"New token acquired: {token[:10]}... (shortened for log)")
+                save_token(token)
+                print(f"New token acquired: {token[:10]}...")
                 return token
             else:
                 print("Login failed:", response_data.get("error", "Unknown error"))
@@ -133,14 +151,30 @@ async def fetch_data():
             token = await login()
             if not token:
                 return None
-
+        
         auth_headers = headers.copy()
         auth_headers["Authorization"] = f"Bearer {token}"
         req = urllib.request.Request(data_url, headers=auth_headers)
         with urllib.request.urlopen(req) as response:
-            return json.load(response)
+            if response.status == 200:
+                return json.load(response)
+            else:
+                print(f"Unexpected status code: {response.status}")
+                return None
+    except urllib.error.HTTPError as e:
+        if e.code == 401:  # Token geçersiz
+            print("Token invalid (401), forcing re-login...")
+            token = await login()
+            if token:
+                return await fetch_data()  # Yeni token ile tekrar dene
+            else:
+                print("Re-login failed.")
+                return None
+        else:
+            print(f"HTTP Error: {e}")
+            return None
     except Exception as e:
-        print("Error fetching data:", str(e))
+        print(f"Error fetching data: {e}")
         return None
 
 async def update_data():
@@ -148,16 +182,15 @@ async def update_data():
     print("Checking data update...")
 
     current_time = datetime.datetime.now()
-    # 12 saat (43200 saniye) kontrolü
     time_diff = (current_time - last_login_time).total_seconds() if last_login_time else float('inf')
-    print(f"Time since last login: {time_diff:.2f} seconds")
-
-    if not last_login_time or time_diff >= 43200:  # 12 saat geçtiyse login yap
-        print("12 hours passed, forcing re-login to acquire new token...")
-        token = await login()  # Her 12 saatte bir zorunlu login
+    print(f"Time since last token refresh: {time_diff:.2f} seconds")
+    
+    if not last_login_time or time_diff >= 21600:  # 6 saat = 21600 saniye
+        print("6 hours passed, refreshing token...")
+        token = await login()
         if not token:
-            print("Re-login failed, will retry in next cycle.")
-            await asyncio.sleep(3600)  # Hata durumunda 1 saat bekle
+            print("Token refresh failed, retrying in 1 hour.")
+            await asyncio.sleep(3600)
             await update_data()
             return
 
@@ -172,11 +205,11 @@ async def update_data():
         except Exception as e:
             print(f"Error saving data to file: {e}")
     else:
-        print("Data fetch failed, token might be invalid. Forcing re-login next cycle.")
-        token = None  # Token geçersizse sıfırla, bir sonraki döngüde login zorlansın
+        print("Data fetch failed, retrying in 1 hour...")
+        await asyncio.sleep(3600)
 
-    # 1 saat (3600 saniye) sonra tekrar çalış
-    print("Waiting 1 hour for next update...")
+    # 1 saat sonra tekrar kontrol et
+    print("Waiting 1 hour for next check...")
     await asyncio.sleep(3600)
     await update_data()
 
@@ -278,7 +311,7 @@ async def pagination(update: Update, context: CallbackContext):
             time_diff = remaining_time - datetime.datetime.now()
             hours, remainder = divmod(time_diff.seconds, 3600)
             minutes, _ = divmod(remainder, 60)
-
+            
             await query.message.reply_text(
                 f"Günlük indirme limitiniz dolmuştur ({DAILY_LIMIT}/{DAILY_LIMIT}).\n"
                 f"Yeni indirme hakkı için kalan süre: {hours} saat {minutes} dakika"
@@ -302,10 +335,10 @@ async def pagination(update: Update, context: CallbackContext):
         if file_path:
             increment_download_count(user_id)
             remaining_downloads = DAILY_LIMIT - user_downloads[user_id]['count']
-
+            
             file_name = f"{dönem} - {deneme_adı}.pdf"
             caption = f"@kcyca_bot ({dönem}) {deneme_adı} \npdf: @kcypdf\n\nKalan indirme hakkı: {remaining_downloads}/{DAILY_LIMIT}"
-
+            
             await query.message.reply_document(
                 document=open(file_path, 'rb'),
                 filename=file_name,
@@ -330,16 +363,16 @@ async def download_answer_key_v2(deneme_id):
     global token
     try:
         if not token:
-            print("Token not available, cannot fetch answer key.")
-            return None
-
+            print("Token not available, attempting login...")
+            token = await login()
+            if not token:
+                return None
+        
         auth_headers = headers.copy()
         auth_headers["Authorization"] = f"Bearer {token}"
         req = urllib.request.Request(f"{download_url}?id={deneme_id}", headers=auth_headers)
         with urllib.request.urlopen(req) as response:
             response_data = json.load(response)
-            print(f"API cevabı: {response_data}")
-
             if response_data.get("success") and response_data["result"]:
                 file_token_url = response_data["result"].get("fileToken")
                 if file_token_url:
@@ -355,6 +388,18 @@ async def download_answer_key_v2(deneme_id):
             else:
                 print("API başarılı sonuç döndürmedi.")
                 return None
+    except urllib.error.HTTPError as e:
+        if e.code == 401:  # Token geçersiz
+            print("Token invalid (401), forcing re-login...")
+            token = await login()
+            if token:
+                return await download_answer_key_v2(deneme_id)  # Yeni token ile tekrar dene
+            else:
+                print("Re-login failed.")
+                return None
+        else:
+            print(f"HTTP Error: {e}")
+            return None
     except Exception as e:
         print(f"Hata oluştu: {e}")
         return None
@@ -379,13 +424,14 @@ def main():
 
     loop = asyncio.get_event_loop()
     global token, last_login_time
-    token = loop.run_until_complete(login())
+    load_token()  # Token’ı dosyadan yükle
+    if not token:
+        token = loop.run_until_complete(login())  # Dosyada yoksa login yap
     if token:
         data = loop.run_until_complete(fetch_data())
         if data:
             global full_data
             full_data = data
-
             try:
                 with open('deneme_verisi.json', 'w', encoding='utf-8') as f:
                     json.dump(full_data, f, ensure_ascii=False, indent=4)
