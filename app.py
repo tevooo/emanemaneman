@@ -8,7 +8,7 @@ import os
 import asyncio
 import datetime
 import logging
-from aiohttp import web
+from aiohttp import web, ClientSession
 
 # Logging configuration
 logging.basicConfig(
@@ -361,14 +361,28 @@ async def start_web_server():
     await site.start()
     print("Health check server started on port 8000")
 
+async def self_ping():
+    async with ClientSession() as session:
+        while True:
+            try:
+                # Render'da localhost yerine Render URL'sini kullanabilirsin, ama lokal test için localhost
+                url = "https://classic-crystie-tevooo-bbe6f04e.koyeb.app"  # Render'da deploy edince bunu Render URL'siyle değiştir
+                async with session.get(url) as response:
+                    if response.status == 200:
+                        print("Self-ping successful")
+                    else:
+                        print(f"Self-ping failed with status: {response.status}")
+            except Exception as e:
+                print(f"Self-ping error: {e}")
+            await asyncio.sleep(600)  # Her 10 dakikada bir ping (600 saniye)
+
 async def run_bot(application):
     await application.initialize()
     await application.start()
     await application.updater.start_polling()
     print("Bot polling started")
-    # Botun çalışmasını sürdürmek için sonsuz döngü
     while True:
-        await asyncio.sleep(3600)  # 1 saat bekle, botun kapanmasını önler
+        await asyncio.sleep(3600)  # Botun kapanmasını önler
 
 async def main():
     # Telegram botunu başlat
@@ -400,6 +414,7 @@ async def main():
     await asyncio.gather(
         start_web_server(),
         update_data(),
+        self_ping(),  # Self-ping görevini ekledik
         run_bot(application)
     )
 
