@@ -23,7 +23,7 @@ login_url = f"{BASE_URL}/api/TokenAuth/Authenticate"
 data_url = f"{BASE_URL}/api/services/app/Denemes/GetAll?Filter=&DenemeAdiFilter=&BKitapcihiVarmiFilter=-1&DenemeKesildimi=-1&DonemId=-1&SinavTuruId=-1&DenemeSetiId=-1&YayineviId=0&Hazirlayan=0&DenemeSetiDenemeSetiAdiFilter=&SinavTuruNameFilter=&DonemDonemAdiFilter=&md5Key=&md10Key=&Sorting=denemeSetiAdi&SkipCount=0&MaxResultCount=100000"
 download_url = f"{BASE_URL}/api/services/app/Denemes/GetDenemeCevapAnahtariPdf"
 
-TOKEN = '7924307739:AAEVw6Sg_M6bI_-uoKH9NQYxrcpjEU0HTeE'
+TOKEN = '7924307739:AAEV3N2R2tyPlLHavNViHGXtzDIZfMzk70Y'
 headers = {"Content-Type": "application/json"}
 
 # Global variables
