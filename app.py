@@ -366,7 +366,7 @@ async def self_ping():
         while True:
             try:
                 # Render'da localhost yerine Render URL'sini kullanabilirsin, ama lokal test için localhost
-                url = "https://classic-crystie-tevooo-bbe6f04e.koyeb.app"  # Render'da deploy edince bunu Render URL'siyle değiştir
+                url = "https://given-brinna-renasdevrim3-b3a4468e.koyeb.app/"  # Render'da deploy edince bunu Render URL'siyle değiştir
                 async with session.get(url) as response:
                     if response.status == 200:
                         print("Self-ping successful")
@@ -374,7 +374,7 @@ async def self_ping():
                         print(f"Self-ping failed with status: {response.status}")
             except Exception as e:
                 print(f"Self-ping error: {e}")
-            await asyncio.sleep(600)  # Her 10 dakikada bir ping (600 saniye)
+            await asyncio.sleep(60)  # Her 10 dakikada bir ping (600 saniye)
 
 async def run_bot(application):
     await application.initialize()
@@ -382,7 +382,7 @@ async def run_bot(application):
     await application.updater.start_polling()
     print("Bot polling started")
     while True:
-        await asyncio.sleep(3600)  # Botun kapanmasını önler
+        await asyncio.sleep(360)  # Botun kapanmasını önler
 
 async def main():
     # Telegram botunu başlat
