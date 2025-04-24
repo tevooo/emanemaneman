@@ -366,7 +366,7 @@ async def self_ping():
         while True:
             try:
                 # Render'da localhost yerine Render URL'sini kullanabilirsin, ama lokal test için localhost
-                url = "https://given-brinna-renasdevrim3-b3a4468e.koyeb.app/"  # Render'da deploy edince bunu Render URL'siyle değiştir
+                url = "https://crowded-morganne-renasdevrim3-5ef33622.koyeb.app"  # Render'da deploy edince bunu Render URL'siyle değiştir
                 async with session.get(url) as response:
                     if response.status == 200:
                         print("Self-ping successful")
