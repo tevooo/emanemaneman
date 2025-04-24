@@ -382,7 +382,7 @@ async def run_bot(application):
     await application.updater.start_polling()
     print("Bot polling started")
     while True:
-        await asyncio.sleep(360)  # Botun kapanmasını önler
+        await asyncio.sleep(3600)  # Botun kapanmasını önler
 
 async def main():
     # Telegram botunu başlat
